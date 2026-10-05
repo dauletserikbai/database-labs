@@ -86,7 +86,7 @@ select * from employees where manager_id is not null and department='IT';
 --task 3.1
 Select upper(first_name || ' ' || last_name) as full_upper_name, length(last_name) as last_naem_length, substring(email from 1 for 3) as email_sub from employees;
 --task 3.2
-select first_name || ' ' || last_name as employee_name, salary*12 as annual_salary, round(salary/12.0, 2) as monthly_salary, round(salary*0.10,2) as raise_amount from employees;
+select first_name || ' ' || last_name as employee_name, salary*12 as annual_salary, round(salary, 2) as monthly_salary, round(salary*0.10,2) as raise_amount from employees;
 --task 3.3
 select format('Project: %s -Budget: $%s -Status: %s', project_name, budget, status) as project_details from projects;
 --task 3.4
