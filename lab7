@@ -1,0 +1,605 @@
+CREATE TABLE employees (
+
+    emp_id INT PRIMARY KEY,
+
+    emp_name VARCHAR(50),
+
+    dept_id INT,
+
+    salary DECIMAL(10, 2)
+
+);
+
+CREATE TABLE departments (
+
+    dept_id INT PRIMARY KEY,
+
+    dept_name VARCHAR(50),
+
+    location VARCHAR(50)
+
+);
+
+CREATE TABLE projects (
+
+    project_id INT PRIMARY KEY,
+
+    project_name VARCHAR(50),
+
+    dept_id INT,
+
+    budget DECIMAL(10, 2)
+
+);
+
+
+
+--- Insert data into employees
+
+INSERT INTO employees (emp_id, emp_name, dept_id, salary)
+
+VALUES
+
+(1, 'John Smith', 101, 50000),
+
+(2, 'Jane Doe', 102, 60000),
+
+(3, 'Mike Johnson', 101, 55000),
+
+(4, 'Sarah Williams', 103, 65000),
+
+(5, 'Tom Brown', NULL, 45000);-- Insert data into departments
+
+INSERT INTO departments (dept_id, dept_name, location) VALUES
+
+(101, 'IT', 'Building A'),
+
+(102, 'HR', 'Building B'),
+
+(103, 'Finance', 'Building C'),
+
+(104, 'Marketing', 'Building D');-- Insert data into projects
+
+INSERT INTO projects (project_id, project_name, dept_id,
+
+budget) VALUES
+
+(1, 'Website Redesign', 101, 100000),
+
+(2, 'Employee Training', 102, 50000),
+
+(3, 'Budget Analysis', 103, 75000),
+
+(4, 'Cloud Migration', 101, 150000),
+
+(5, 'AI Research', NULL, 200000);
+
+
+
+
+
+SELECT e.emp_name, d.dept_name
+
+FROM employees e CROSS JOIN departments d;
+
+--5*4=20
+
+
+
+select e.emp_name, d.dept_name from employees e, departments d;
+
+
+
+select e.emp_name ,d.dept_name from employees e inner join departments d on true;
+
+
+
+select e.emp_name, p.project_name from employees e cross join projects p;
+
+
+
+select e.emp_name, d.dept_name, d.location from employees e inner join departments d on e.dept_id=d.dept_id;
+
+--4 rows, tom not included because dept id=null
+
+
+
+select emp_name, dept_name, location from employees inner join departments using(dept_id);
+
+--outputs are the same
+
+
+
+select emp_name, dept_name, location from employees natural inner join departments;
+
+
+
+select e.emp_name, d.dept_name, p.project_name from employees e inner join departments d on e.dept_id=d.dept_id inner join projects p on d.dept_id=p.dept_id;
+
+
+
+select e.emp_id, e.dept_id as emp_dept, d.dept_id as dept_dept, d.dept_name
+
+from employees e
+
+left join departments d on e.dept_id=d.dept_id;
+
+--tom represented without emp_dept, dept_dept  and dept_name;
+
+
+
+select emp_name, dept_id, dept_name
+
+from employees
+
+left join departments using(dept_id);
+
+
+
+select e.emp_name, e.dept_id
+
+from employees e
+
+left join departments d on e.dept_id=d.dept_id
+
+where d.dept_id is null;
+
+
+
+select d.dept_name, count(e.emp_id) as employee_count
+
+from departments d
+
+left join employees e on d.dept_id=e.dept_id
+
+group by d.dept_id, d.dept_name
+
+order by employee_count desc;
+
+
+
+select e.emp_name, d.dept_name
+
+from employees e right join departments d on e.dept_id=d.dept_id;
+
+
+
+select e.emp_name, d.dept_name
+
+from departments d left join employees e on d.dept_id=e.dept_id;
+
+
+
+select d.dept_name, d.location
+
+from employees e right join departments d on e.dept_id=d.dept_id
+
+where e.emp_id is null;
+
+
+
+select e.emp_id, e.dept_id as emp_dept, d.dept_id as dept_dept, d.dept_name
+
+from employees e full join departments d on e.dept_id=d.dept_id;
+
+
+
+select d.dept_name, p.project_name, p.budget
+
+from departments d full join projects p on d.dept_id=p.dept_id;
+
+
+
+select
+
+    case
+
+        when e.emp_id is null then 'department without employees'
+
+        when d.dept_id is null then 'emloyee without department'
+
+        else 'matched'
+
+    end as record_status,
+
+    e.emp_name,
+
+    d.dept_name
+
+from employees e
+
+full join departments d on e.dept_id=d.dept_id
+
+where e.emp_id is null or d.dept_id is null;
+
+
+
+select e.emp_name, d.dept_name, e.salary
+
+from employees e
+
+left join departments d on e.dept_id=d.dept_id and d.location='Building A';
+
+
+
+select e.emp_name, d.dept_name, e.salary
+
+from employees e left join departments d on e.dept_id=d.dept_id
+
+where d.location='Building A';
+
+--(ON clause): Applies the filter BEFORE the join, so all employees are included, but only departments in Building A are matched. (WHERE clause): Applies the filter AFTER the join, so employees are excluded if their department is not in Building A.
+
+
+
+select e.emp_name, d.dept_name, e.salary
+
+from employees e
+
+inner join departments d
+
+    on e.dept_id=d.dept_id
+
+    and d.location='Building A';
+
+
+
+
+
+select e.emp_name, d.dept_name, e.salary
+
+from employees e
+
+inner join departments d
+
+    on e.dept_id=d.dept_id
+
+where d.location='Building A';
+
+--output is the same, with an INNER JOIN, both records without matches and records that do not meet the filter are excluded.
+
+
+
+select
+
+    d.dept_name,
+
+    e.emp_name,
+
+    e.salary,
+
+    p.project_name,
+
+    p.budget
+
+from departments d
+
+left join employees e on d.dept_id=e.dept_id
+
+left join projects p on d.dept_id=p.dept_id
+
+order by d.dept_name, e.emp_name;
+
+
+
+alter table employees add column manager_id int;
+
+
+
+UPDATE employees SET manager_id = 3 WHERE emp_id = 1;
+
+UPDATE employees SET manager_id = 3 WHERE emp_id = 2;
+
+UPDATE employees SET manager_id = NULL WHERE emp_id = 3;
+
+UPDATE employees SET manager_id = 3 WHERE emp_id = 4;
+
+UPDATE employees SET manager_id = 3 WHERE emp_id = 5;
+
+
+
+select
+
+    e.emp_name as employee,
+
+    m.emp_name as manager
+
+from employees e
+
+left join employees m on e.manager_id=m.emp_id;
+
+
+
+select d.dept_name, avg(e.salary) as avg_salary
+
+from departments d inner join employees e on d.dept_id=e.dept_id
+
+group by d.dept_id, d.dept_name
+
+having avg(e.salary)>50000;
+
+--Lab 7
+
+create view employee_details as
+select
+    e.emp_name,
+    e.salary,
+    d.dept_name,
+    d.location
+from employees e
+inner join departments d on e.dept_id=d.dept_id;
+
+SELECT * FROM employee_details;
+--4 rows, tom appear because his department is null
+
+create view dept_statistics as
+select
+    d.dept_name,
+    count(e.emp_id) as employee_count,
+    avg(e.salary),
+    max(e.salary),
+    min(e.salary)
+from departments d
+left join employees e on d.dept_id=e.dept_id
+GROUP BY d.dept_id, d.dept_name;
+
+SELECT * FROM dept_statistics
+ORDER BY employee_count DESC;
+
+create view project_overview as
+select
+    p.project_name,
+    p.budget,
+    d.dept_name,
+    d.location,
+    (select count(*) from employees e where e.dept_id=p.dept_id)as employee_count
+from projects p left join departments d  on p.dept_id=d.dept_id;
+
+select * from project_overview;
+
+CREATE VIEW high_earners AS
+SELECT
+    e.emp_name,
+    e.salary,
+    d.dept_name
+FROM employees e
+LEFT JOIN departments d ON e.dept_id = d.dept_id
+WHERE e.salary > 55000;
+
+select * from high_earners;
+--Jane Doe, Sarah Williams
+
+create or replace view employee_details as
+select
+    e.emp_name,
+    e.salary,
+    d.dept_name,
+    d.location,
+    case
+        when e.salary>60000 then 'High'
+        when e.salary>50000 then 'Median'
+        else 'Standard'
+    end as salary_grade
+from employees e
+inner join departments d on e.dept_id=d.dept_id;
+
+select * from employee_details;
+
+alter view high_earners rename to top_performers;
+
+select* from top_performers;
+
+create temp view temp_view as
+select emp_name, employees.salary
+from employees
+where salary<50000;
+
+select * from temp_view;
+
+create view employee_salary as
+select emp_id, emp_name, dept_id, salary
+from employees;
+
+select * from employee_salary;
+
+update employee_salary
+set salary=52000
+WHERE emp_name='John Smith';
+
+select * from employees;
+--yes
+
+insert into employee_salary(emp_id, emp_name, dept_id, salary)
+values(6, 'Alice Johnson', 102, 58000);
+
+create view it_employees as
+select emp_id, emp_name, dept_id, salary
+from employees
+where dept_id=101
+with local check option;
+
+INSERT INTO it_employees (emp_id, emp_name, dept_id, salary)
+VALUES (7, 'Bob Wilson', 103, 60000);
+--new row violates check option for view "it_employees"
+
+create materialized view dept_summary_mv as
+select
+    d.dept_id,
+    d.dept_name,
+    COALESCE(e_stats.total_employees, 0) AS total_employees,
+    COALESCE(e_stats.total_salaries, 0) AS total_salaries,
+    COALESCE(p_stats.total_projects, 0) AS total_projects,
+    COALESCE(p_stats.total_project_budget, 0) AS total_project_budget
+FROM departments d
+LEFT JOIN (
+    SELECT dept_id, COUNT(emp_id) AS total_employees, SUM(salary) AS total_salaries
+    FROM employees
+    GROUP BY dept_id
+) e_stats ON d.dept_id = e_stats.dept_id
+LEFT JOIN (
+    SELECT dept_id, COUNT(project_id) AS total_projects, SUM(budget) AS total_project_budget
+    FROM projects
+    GROUP BY dept_id
+) p_stats ON d.dept_id = p_stats.dept_id
+WITH DATA;
+
+INSERT INTO employees (emp_id, emp_name, dept_id, salary)
+VALUES (8, 'Charlie Brown', 101, 54000);
+
+select * from dept_summary_mv order by total_employees desc;
+
+REFRESH MATERIALIZED VIEW dept_summary_mv;
+
+
+create unique index dept_summary_mv_dept_id_idx on dept_summary_mv(dept_id);
+
+REFRESH MATERIALIZED VIEW CONCURRENTLY dept_summary_mv;
+
+create materialized view project_status_mv as
+select
+    p.project_name,
+    p.budget,
+    d.dept_name,
+    (select count(*) from employees e where e.dept_id=p.dept_id) as assigned_emp_count
+from projects p
+left join departments d on p.dept_id=d.dept_id
+with no data;
+
+Create role analyst nologin;
+create role data_viewer with login password 'viewer123';
+create role report_user with password 'report456';
+
+select rolname from pg_roles where rolname not like 'pg_%';
+
+
+create role db_creator with createdb login password 'creator789';
+create role user_manager with createrole login password 'manager101';
+create role admin_user with superuser login password 'admin999';
+
+grant select on employees, departments, projects to analyst;
+grant all privileges on employee_details to data_viewer;
+grant select, insert on employees to report_user;
+
+create role hr_team nologin;
+create role finance_team nologin;
+create role it_team nologin;
+
+create user hr_user1 with password 'hr001';
+create user hr_user2 with password 'hr002';
+create user finance_user1 with password 'fin001';
+
+grant hr_team to hr_user1, hr_user2;
+grant finance_team to finance_user1;
+grant select, update on employees to hr_team;
+grant select on dept_statistics to finance_team;
+
+revoke update on employees from hr_team;
+revoke hr_team from hr_user2;
+revoke all privileges on employee_details from data_viewer;
+
+alter role analyst with login password'analyst123';
+alter role user_manager with superuser;
+alter role analyst password null;
+alter role data_viewer connection limit 5;
+
+create role read_only nologin;
+grant select on all tables in schema public to read_only;
+
+create role junior_analyst with login password 'junior123';
+create role senior_analyst with login password 'senior123';
+
+grant read_only to junior_analyst, senior_analyst;
+
+grant insert, update on employees to senior_analyst;
+
+
+create role project_manager with login password 'pm123';
+alter view dept_statistics owner to project_manager;
+alter table projects owner to project_manager;
+
+SELECT tablename, tableowner
+FROM pg_tables
+WHERE schemaname = 'public';
+
+create role temp_owner with login;
+create table temp_table(
+    id int
+);
+alter table temp_table owner to temp_owner;
+
+reassign owned by temp_owner to postgres;
+
+drop owned by temp_owner;
+
+drop role temp_owner;
+
+
+create view hr_employee_view as
+select emp_id, emp_name, dept_id, salary
+from employees
+where dept_id=102;
+
+grant select on hr_employee_view to hr_team;
+
+create view finance_employee_view as
+select emp_id, emp_name, salary
+from employees;
+
+grant select on finance_employee_view to finance_team;
+
+CREATE VIEW dept_dashboard AS
+SELECT
+    d.dept_name,
+    d.location,
+    COUNT(DISTINCT e.emp_id) AS employee_count,
+    ROUND(COALESCE(AVG(e.salary), 0)::numeric, 2) AS avg_salary,
+    COUNT(DISTINCT p.project_id) AS active_projects_count,
+    COALESCE(SUM(p.budget), 0) AS total_project_budget,
+    ROUND(
+        COALESCE(SUM(p.budget), 0) / NULLIF(COUNT(DISTINCT e.emp_id), 0)::numeric,
+        2
+    ) AS budget_per_employee
+FROM departments d
+LEFT JOIN employees e ON d.dept_id = e.dept_id
+LEFT JOIN projects p ON d.dept_id = p.dept_id
+GROUP BY d.dept_id, d.dept_name, d.location;
+
+ALTER TABLE projects ADD COLUMN created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+CREATE VIEW high_budget_projects AS
+SELECT
+    p.project_name,
+    p.budget,
+    d.dept_name,
+    p.created_date,
+    CASE
+        WHEN p.budget > 150000 THEN 'Critical Review Required'
+        WHEN p.budget > 100000 THEN 'Management Approval Needed'
+        ELSE 'Standard Process'
+    END AS approval_status
+FROM projects p
+LEFT JOIN departments d ON p.dept_id = d.dept_id
+WHERE p.budget > 75000;
+
+CREATE ROLE viewer_role NOLOGIN;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO viewer_role;
+
+CREATE ROLE entry_role NOLOGIN;
+GRANT viewer_role TO entry_role;
+GRANT INSERT ON employees, projects TO entry_role;
+
+CREATE ROLE analyst_role NOLOGIN;
+GRANT entry_role TO analyst_role;
+GRANT UPDATE ON employees, projects TO analyst_role;
+
+CREATE ROLE manager_role NOLOGIN;
+GRANT analyst_role TO manager_role;
+GRANT DELETE ON employees, projects TO manager_role;
+
+CREATE USER alice WITH PASSWORD 'alice123';
+CREATE USER bob WITH PASSWORD 'bob123';
+CREATE USER charlie WITH PASSWORD 'charlie123';
+
+GRANT viewer_role TO alice;
+GRANT analyst_role TO bob;
+GRANT manager_role TO charlie;
