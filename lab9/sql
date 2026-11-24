@@ -1,0 +1,684 @@
+-- ============================================================
+-- Laboratory Work 9: Stored Procedures and User-Defined Functions
+-- Part 1: Database Setup  (CityBike rental network)
+-- ============================================================
+
+DROP TABLE IF EXISTS rentals, bikes, members, stations CASCADE;
+
+-- Create table: stations
+CREATE TABLE stations (
+    station_id   INT PRIMARY KEY,
+    station_name VARCHAR(50) NOT NULL,
+    city         VARCHAR(40) NOT NULL,
+    capacity     INT NOT NULL
+);
+
+-- Create table: bikes
+CREATE TABLE bikes (
+    bike_id    INT PRIMARY KEY,
+    model      VARCHAR(50) NOT NULL,
+    station_id INT REFERENCES stations(station_id),
+    daily_rate NUMERIC(8,2) NOT NULL
+);
+
+-- Create table: members
+CREATE TABLE members (
+    member_id INT PRIMARY KEY,
+    full_name VARCHAR(60) NOT NULL,
+    city      VARCHAR(40) NOT NULL,
+    joined_on DATE NOT NULL
+);
+
+-- Create table: rentals
+CREATE TABLE rentals (
+    rental_id  INT PRIMARY KEY,
+    member_id  INT REFERENCES members(member_id),
+    bike_id    INT REFERENCES bikes(bike_id),
+    start_date DATE NOT NULL,
+    end_date   DATE,
+    fee        NUMERIC(8,2)
+);
+
+INSERT INTO stations VALUES
+ (10, 'Central Park', 'Almaty',   4),
+ (20, 'Riverside',    'Almaty',   3),
+ (30, 'Expo Gate',    'Astana',   5),
+ (40, 'Old Town',     'Shymkent', 2),
+ (50, 'Depot',        'Astana',   0);
+
+INSERT INTO bikes VALUES
+ (101, 'City Cruiser', 10,  4.50),
+ (102, 'City Cruiser', 10,  4.50),
+ (103, 'Mountain X',   20,  7.00),
+ (104, 'Mountain X',   30,  7.00),
+ (105, 'Road Sprint',  30,  9.25),
+ (106, 'Folding Mini', 40,  3.75),
+ (107, 'Cargo Hauler', 20, 12.00),
+ (108, 'Road Sprint',  10,  9.25);
+
+INSERT INTO members VALUES
+ (1, 'Aisha Nurlanova', 'Almaty',   DATE '2023-03-14'),
+ (2, 'Daniyar Serik',   'Almaty',   DATE '2023-07-02'),
+ (3, 'Marta Kowalski',  'Astana',   DATE '2024-01-20'),
+ (4, 'Chen Wei',        'Astana',   DATE '2024-05-11'),
+ (5, 'Omar Haddad',     'Shymkent', DATE '2024-09-30'),
+ (6, 'Elena Petrova',   'Almaty',   DATE '2025-02-05');
+
+INSERT INTO rentals VALUES
+ ( 1, 1, 101, DATE '2024-04-05', DATE '2024-04-08', 13.50),
+ ( 2, 1, 103, DATE '2024-06-11', DATE '2024-06-16', 35.00),
+ ( 3, 1, 108, DATE '2025-02-02', DATE '2025-02-04', 18.50),
+ ( 4, 1, 102, DATE '2025-05-20', DATE '2025-05-27', 31.50),
+ ( 5, 2, 101, DATE '2024-05-01', DATE '2024-05-02',  4.50),
+ ( 6, 2, 107, DATE '2024-11-15', DATE '2024-11-19', 48.00),
+ ( 7, 2, 107, DATE '2025-03-08', DATE '2025-03-14', 72.00),
+ ( 8, 3, 104, DATE '2024-02-14', DATE '2024-02-18', 28.00),
+ ( 9, 3, 105, DATE '2024-08-03', DATE '2024-08-06', 27.75),
+ (10, 3, 104, DATE '2025-01-09', DATE '2025-01-10',  7.00),
+ (11, 3, 105, DATE '2025-06-01', DATE '2025-06-09', 74.00),
+ (12, 4, 104, DATE '2024-07-19', DATE '2024-07-21', 14.00),
+ (13, 4, 105, DATE '2025-04-12', DATE '2025-04-15', 27.75),
+ (14, 4, 103, DATE '2025-07-23', DATE '2025-07-29', 42.00),
+ (15, 5, 106, DATE '2024-10-05', DATE '2024-10-12', 26.25),
+ (16, 5, 106, DATE '2025-01-18', DATE '2025-01-20',  7.50),
+ (17, 5, 106, DATE '2025-08-14', DATE '2025-08-21', 26.25),
+ (18, 2, 102, DATE '2025-09-02', DATE '2025-09-05', 13.50),
+ (19, 1, 101, DATE '2025-10-10', NULL,              NULL),
+ (20, 4, 108, DATE '2024-12-28', DATE '2025-01-03', 55.50),
+ (21, 3, 103, DATE '2025-02-26', DATE '2025-03-02', 28.00),
+ (22, 5, 104, DATE '2025-05-05', DATE '2025-05-08', 21.00);
+
+SELECT (SELECT COUNT(*) FROM stations) AS stations,
+(SELECT COUNT(*) FROM bikes) AS bikes,
+(SELECT COUNT(*) FROM members) AS members,
+(SELECT COUNT(*) FROM rentals) AS rentals;
+
+CREATE OR REPLACE FUNCTION rental_days(p_rental_id INT) RETURNS INT AS
+$$
+DECLARE
+    v_days INT;
+BEGIN
+    SELECT end_date - start_date
+    INTO v_days
+    FROM rentals
+    WHERE rental_id = p_rental_id;
+
+    RETURN v_days;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT rental_days(19);  -- 5
+SELECT rental_days(999); -- 8
+--both returns null/19 exists but without date/999 doesnt exists at all
+
+CREATE OR REPLACE FUNCTION member_rental_count(p_member_id INT) RETURNS INT AS $$
+DECLARE
+    v_count INT;
+BEGIN
+    SELECT COUNT(*)
+    INTO v_count
+    FROM rentals
+    WHERE member_id = p_member_id;
+
+    RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT member_rental_count(1); -- 4
+SELECT member_rental_count(5); -- 3
+SELECT member_rental_count(6); -- 0
+
+--For an empty set of matching rows (whether for existing member 6 who has no rentals, or non-existent member 99), the count of rows is 0
+
+CREATE OR REPLACE FUNCTION station_city(p_station_id INT) RETURNS VARCHAR AS $$
+DECLARE
+    v_city VARCHAR;
+BEGIN
+    SELECT city
+    INTO v_city
+    FROM stations
+    WHERE station_id = p_station_id;
+
+    RETURN v_city;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT station_city(30); -- 'Astana'
+SELECT station_city(77); -- NULL
+
+SELECT
+    rental_id,
+    member_id,
+    rental_days(rental_id) AS duration_days
+FROM rentals
+WHERE rental_days(rental_id) > 4
+ORDER BY duration_days DESC;
+
+CREATE OR REPLACE FUNCTION fee_with_discount(p_fee NUMERIC, p_percent NUMERIC)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN ROUND(p_fee * (1 - p_percent / 100.0), 2);
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT fee_with_discount(74.00, 15); -- 62.90
+
+
+CREATE OR REPLACE FUNCTION member_stats(
+    p_member_id INT,
+    OUT rental_cnt INT,
+    OUT total_fee NUMERIC,
+    OUT last_start DATE
+) AS $$
+BEGIN
+    SELECT
+        COUNT(*),
+        COALESCE(SUM(fee), 0),
+        MAX(start_date)
+    INTO rental_cnt, total_fee, last_start
+    FROM rentals
+    WHERE member_id = p_member_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT member_stats(3);
+SELECT * FROM member_stats(3);
+SELECT * FROM member_stats(6);
+--SELECT member_stats(3) packs all three values into a single composite record column, whereas SELECT * FROM member_stats(3) unpacks them into separate named columns, and for member 6 it returns
+
+CREATE OR REPLACE FUNCTION apply_late_fee(INOUT p_fee NUMERIC) AS $$
+BEGIN
+    p_fee := p_fee + 5.00;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT apply_late_fee(fee)
+FROM rentals
+WHERE rental_id = 1; -- 18.50
+--a function with OUT or INOUT parameters implicitly defines its return type as the composite record of those output parameters and automatically returns their final variable values when execution reaches END
+
+CREATE OR REPLACE FUNCTION fee_summary(
+    VARIADIC p_fees NUMERIC[],
+    OUT total NUMERIC,
+    OUT average NUMERIC,
+    OUT largest NUMERIC
+) AS $$
+BEGIN
+    SELECT
+        SUM(p_fees[i]),
+        ROUND(AVG(p_fees[i]), 2),
+        MAX(p_fees[i])
+    INTO total, average, largest
+    FROM generate_subscripts(p_fees, 1) AS g(i);
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT * FROM fee_summary(13.50, 35.00, 18.50, 31.50);
+--Calling fee_summary() with no arguments fails because PostgreSQL requires at least one element to match a VARIADIC
+
+--(a) The id of the row to look up: Use IN because the caller only passes a lookup value into the function without needing it modified or returned.
+
+--(b) A running balance that the caller passes in and expects back updated: Use INOUT because the parameter serves both as an input carrying the initial balance and as an output returning the updated balance.
+
+--(c) A list of station ids of unknown length: Use VARIADIC because it allows the caller to pass a variable number of individual station ID arguments that are automatically collected into an array inside the function.
+
+--(d) Two statistics returned together from one pass over a table: Use OUT (two OUT parameters) because the function needs to return multiple distinct output values simultaneously without requiring any corresponding input values from the caller.
+
+
+CREATE OR REPLACE FUNCTION total_fees(p_member_id INT)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN COALESCE(
+        (SELECT SUM(fee) FROM rentals WHERE member_id = p_member_id),
+        0
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT total_fees(1); -- 98.50
+SELECT total_fees(6); -- 0
+
+
+CREATE OR REPLACE FUNCTION total_fees(p_member_id INT, p_from_date DATE)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN COALESCE(
+        (SELECT SUM(fee)
+         FROM rentals
+         WHERE member_id = p_member_id
+           AND start_date >= p_from_date),
+        0
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT total_fees(1, DATE '2024-01-01'); -- 98.50
+SELECT total_fees(1, DATE '2025-01-01'); -- 50.00
+
+-- Inspect overloaded functions
+\df total_fees
+
+CREATE OR REPLACE FUNCTION total_fees(
+    p_member_id INT,
+    p_from_date DATE DEFAULT DATE '2025-01-01'
+)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN COALESCE(
+        (SELECT SUM(fee)
+         FROM rentals
+         WHERE member_id = p_member_id
+           AND start_date >= p_from_date),
+        0
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT total_fees(1);
+
+--ERROR: function total_fees(integer) is not unique
+--HINT: Could not choose a best candidate function. You might need to add explicit type casts.
+
+DROP FUNCTION total_fees(INTEGER);
+SELECT total_fees(1); -- 50.00
+
+--Now the remaining two-argument version total_fees(INT, DATE DEFAULT DATE '2025-01-01') answers the call and returns 50.00 (the sum of member 1's rentals starting on or after 2025-01-01: 18.50 + 31.50, excluding the NULL fee on rental 19). Dropping the other version (total_fees(integer, date)) instead would have left the one-argument version, which sums all rentals for member 1 regardless of date and returns 98.50 (13.50 + 35.00 + 18.50 + 31.50), so it would not have given the same answer.
+
+CREATE OR REPLACE FUNCTION total_fees(p_member_name VARCHAR)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN COALESCE(
+        (SELECT SUM(r.fee)
+         FROM rentals r
+         JOIN members m ON m.member_id = r.member_id
+         WHERE m.full_name = p_member_name),
+        0
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT total_fees('Aisha Nurlanova'); -- 98.50
+SELECT total_fees(1);                -- 50.00
+--Adding total_fees(VARCHAR) does not cause ambiguity because 'Aisha Nurlanova' is a text string/
+
+CREATE OR REPLACE FUNCTION find_bikes(p_pattern VARCHAR)
+RETURNS TABLE(found_id INT, found_model VARCHAR, found_rate NUMERIC) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT b.bike_id, b.model, b.daily_rate
+    FROM bikes b
+    WHERE b.model ILIKE p_pattern
+    ORDER BY b.bike_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT * FROM find_bikes('%road%');
+SELECT * FROM find_bikes('%Mini%');
+
+--SELECT find_bikes('%road%'); without FROM returns a single column of composite record values (e.g., (105,"Road Sprint",9.25) and (108,"Road Sprint",9.25)), where each returned row is wrapped as a single record/tuple inside one column instead of being expanded into separate found_id, found_model, and found_rate columns. This happens because calling a set-returning function in the SELECT list without FROM treats the function call as a scalar/record expression rather than unpacking its RETURNS TABLE columns into the query's result set.
+
+
+CREATE OR REPLACE FUNCTION member_history(p_member_id INT)
+RETURNS TABLE(
+    rental_id INT,
+    bike_model VARCHAR,
+    station_name VARCHAR,
+    duration_days INT,
+    fee NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        r.rental_id,
+        b.model,
+        s.station_name,
+        (r.end_date - r.start_date)::INT,
+        r.fee
+    FROM rentals r
+    JOIN bikes b ON b.bike_id = r.bike_id
+    JOIN stations s ON s.station_id = b.station_id
+    WHERE r.member_id = p_member_id
+    ORDER BY r.start_date;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT * FROM member_history(3);
+
+
+CREATE OR REPLACE FUNCTION bike_list(p_station_id INT)
+RETURNS TABLE(bike_id INT, model VARCHAR) AS $$
+BEGIN
+    RETURN QUERY SELECT bike_id, model FROM bikes WHERE station_id = p_station_id;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT * FROM bike_list(10);
+
+--The error appears only at call time because PL/pgSQL compiles and plans the SQL query inside the function body on first execution (or call time) rather than during CREATE FUNCTION. Inside RETURN QUERY, bike_id and model match both the RETURNS TABLE output parameter names and the columns of bikes, causing an ambiguous column reference error when executed.
+
+CREATE OR REPLACE FUNCTION bike_list(p_station_id INT)
+RETURNS TABLE(out_bike_id INT, out_model VARCHAR) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT bike_id, model
+    FROM bikes
+    WHERE station_id = p_station_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION bike_list(p_station_id INT)
+RETURNS TABLE(bike_id INT, model VARCHAR) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT b.bike_id, b.model
+    FROM bikes AS b
+    WHERE b.station_id = p_station_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION station_board(p_city VARCHAR)
+RETURNS TABLE(s_name VARCHAR, s_bikes INT, s_free INT) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        s.station_name::VARCHAR,
+        COUNT(b.bike_id)::INT,
+        (s.capacity - COUNT(b.bike_id))::INT
+    FROM stations s
+    LEFT JOIN bikes b ON b.station_id = s.station_id
+    WHERE s.city = p_city
+    GROUP BY s.station_id, s.station_name, s.capacity
+    ORDER BY s.station_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT * FROM station_board('Almaty');
+
+--If you declare s_bikes as INT (integer) and do not cast COUNT(*) (bigint) to INT, calling the function fails at runtime when RETURN QUERY executes because the query's second column type (bigint) does not match the declared RETURNS TABLE column type (integer):
+
+DO $$
+<<rental_report>>
+DECLARE
+    total_rentals INTEGER := 0;
+BEGIN
+    SELECT COUNT(*)
+    INTO total_rentals
+    FROM rentals;
+
+    RAISE NOTICE 'The rentals table holds % rows.', total_rentals;
+END rental_report $$;
+
+--If the label after END does not match the label at the top (<<rental_report>>), PostgreSQL raises a syntax/compile error
+
+DO $$
+<<rental_report>>
+DECLARE
+    total_rentals INTEGER := 0;
+    fee_total NUMERIC;
+BEGIN
+    SELECT COUNT(*)
+    INTO total_rentals
+    FROM rentals;
+
+    RAISE NOTICE 'The rentals table holds % rows.', total_rentals;
+
+    SELECT COALESCE(SUM(fee), 0)
+    INTO fee_total
+    FROM rentals;
+
+    -- 1. Outer value before the subblock opens
+    RAISE NOTICE 'Outer fee_total before subblock: %', fee_total;
+
+    DECLARE
+        fee_total NUMERIC;
+    BEGIN
+        SELECT COALESCE(SUM(fee), 0)
+        INTO fee_total
+        FROM rentals
+        WHERE start_date >= DATE '2025-01-01';
+
+        -- 2. Subblock's own value
+        RAISE NOTICE 'Inner fee_total: %', fee_total;
+
+        -- 3. Outer block's value reached through its label
+        RAISE NOTICE 'Outer fee_total via label: %', rental_report.fee_total;
+    END;
+
+    -- 4. Outer value after the subblock has ended
+    RAISE NOTICE 'Outer fee_total after subblock: %', fee_total;
+END rental_report $$;
+
+--The four fee_total values printed are 674.50, 422.00, 674.50, and 674.50. No—the assignment inside the subblock did not change the outer variable because declaring fee_total inside the subblock created a separate local variable that shadowed
+
+DO $$
+<<rental_report>>
+DECLARE
+    total_rentals INTEGER := 0;
+    fee_total NUMERIC;
+BEGIN
+    SELECT COUNT(*)
+    INTO total_rentals
+    FROM rentals;
+
+    SELECT COALESCE(SUM(fee), 0)
+    INTO fee_total
+    FROM rentals;
+
+    DECLARE
+        sub1_var NUMERIC := 100.00;
+    BEGIN
+        RAISE NOTICE 'Subblock 1 var: %', sub1_var;
+    END;
+
+    DECLARE
+        sub2_var NUMERIC;
+    BEGIN
+        -- Fails because sub1_var is out of scope here
+        sub2_var := sub1_var + 10.00;
+        RAISE NOTICE 'Subblock 2 var: %', sub2_var;
+    END;
+END rental_report $$;
+
+--Error: ERROR: column "sub1_var" does not exist (or ERROR: "sub1_var" is not a known variable), because sub1_var only exists inside the first subblock.
+
+DO $$
+<<rental_report>>
+DECLARE
+    total_rentals INTEGER := 0;
+    fee_total NUMERIC;
+    shared_var NUMERIC := 100.00;
+BEGIN
+    SELECT COUNT(*)
+    INTO total_rentals
+    FROM rentals;
+
+    SELECT COALESCE(SUM(fee), 0)
+    INTO fee_total
+    FROM rentals;
+
+    DECLARE
+        sub1_var NUMERIC;
+    BEGIN
+        sub1_var := shared_var + 10.00;
+        RAISE NOTICE 'Subblock 1 sees shared_var: %, result: %', shared_var, sub1_var;
+    END;
+
+    DECLARE
+        sub2_var NUMERIC;
+    BEGIN
+        sub2_var := shared_var + 25.00;
+        RAISE NOTICE 'Subblock 2 sees shared_var: %, result: %', shared_var, sub2_var;
+    END;
+END rental_report $$;
+
+CREATE OR REPLACE FUNCTION fee_split(
+    p_from_date DATE,
+    OUT before_total NUMERIC,
+    OUT after_total NUMERIC
+) AS $$
+BEGIN
+    SELECT COALESCE(SUM(fee), 0)
+    INTO before_total
+    FROM rentals
+    WHERE start_date < p_from_date;
+
+    DECLARE
+        after_total NUMERIC;
+    BEGIN
+        SELECT COALESCE(SUM(fee), 0)
+        INTO after_total
+        FROM rentals
+        WHERE start_date >= p_from_date;
+
+        fee_split.after_total := after_total;
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Verify that before_total + after_total equals the total of the whole table
+SELECT
+    before_total,
+    after_total,
+    before_total + after_total AS split_sum,
+    (SELECT COALESCE(SUM(fee), 0) FROM rentals) AS whole_table_total
+FROM fee_split(DATE '2025-01-01');
+
+CREATE OR REPLACE FUNCTION station_load(
+    p_station_id INT,
+    OUT bikes_parked INT,
+    OUT capacity_pct NUMERIC
+) AS $$
+DECLARE
+    v_capacity INT;
+BEGIN
+    SELECT s.capacity, COUNT(b.bike_id)::INT
+    INTO v_capacity, bikes_parked
+    FROM stations s
+    LEFT JOIN bikes b ON b.station_id = s.station_id
+    WHERE s.station_id = p_station_id
+    GROUP BY s.capacity;
+
+    IF v_capacity IS NULL THEN
+        bikes_parked := NULL;
+        capacity_pct := NULL;
+    ELSIF v_capacity = 0 THEN
+        capacity_pct := 0.0;
+    ELSE
+        capacity_pct := ROUND((bikes_parked::NUMERIC / v_capacity::NUMERIC) * 100.0, 1);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Run for every station
+SELECT s.station_id, s.station_name, l.*
+FROM stations s, LATERAL station_load(s.station_id) l;
+
+--For station 50 (Depot, capacity 0, 0 bikes parked), returning 0.0 (or NULL—here 0.0 is used) avoids division by zero;
+
+
+CREATE OR REPLACE FUNCTION top_members(p_limit INT DEFAULT 3)
+RETURNS TABLE(
+    member_name VARCHAR,
+    rental_count BIGINT,
+    total_spent NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        m.full_name,
+        COUNT(r.rental_id),
+        COALESCE(SUM(r.fee), 0)
+    FROM members m
+    LEFT JOIN rentals r ON r.member_id = m.member_id
+    GROUP BY m.member_id, m.full_name
+    ORDER BY total_spent DESC, rental_count DESC, m.member_id ASC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Test calls
+SELECT * FROM top_members();
+SELECT * FROM top_members(6);
+
+--Daniyar Serik has more rentals (4 rentals, 138.00 spent) than Marta Kowalski (5 rentals, 156.75 spent) or Aisha Nurlanova (4 rentals, 98.50 spent), and if ordered primarily by total_spent DESC, Daniyar Serik (138.00) ranks above Aisha Nurlanova (98.50) despite both having 4 rentals—or if a member with fewer rentals spent more money
+
+CREATE OR REPLACE FUNCTION rental_invoice(p_rental_id INT)
+RETURNS TABLE(
+    member_name VARCHAR,
+    bike_model VARCHAR,
+    days INT,
+    amount_owed NUMERIC,
+    status TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        m.full_name,
+        b.model,
+        (COALESCE(r.end_date, CURRENT_DATE) - r.start_date)::INT AS calc_days,
+        ROUND(
+            (COALESCE(r.end_date, CURRENT_DATE) - r.start_date)::NUMERIC * b.daily_rate,
+            2
+        ) AS calc_amount,
+        CASE
+            WHEN r.end_date IS NULL THEN 'OPEN'
+            ELSE 'CLOSED'
+        END AS rental_status
+    FROM rentals r
+    JOIN members m ON m.member_id = r.member_id
+    JOIN bikes b ON b.bike_id = r.bike_id
+    WHERE r.rental_id = p_rental_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Test calls
+SELECT * FROM rental_invoice(11);
+SELECT * FROM rental_invoice(19);
+
+--For rental 11 (2025-06-01 to 2025-06-09 = 8 days × 9.25 = 74.00), the calculated amount equals the stored fee (74.00). For rental 19 (start_date = 2025-10-10, end_date IS NULL, status 'OPEN'), the duration uses CURRENT_DATE, which advances every day, so the number of days and amount_owed increase each day; therefore, a function depending on CURRENT_DATE cannot be declared IMMUTABLE (it must be STABLE or VOLATILE, since IMMUTABLE requires identical outputs for identical arguments across all points in time).
+
+CREATE OR REPLACE FUNCTION city_report(p_city VARCHAR)
+RETURNS TABLE(
+    member_count BIGINT,
+    rental_count BIGINT,
+    total_revenue NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COUNT(DISTINCT m.member_id),
+        COUNT(r.rental_id),
+        COALESCE(SUM(r.fee), 0)
+    FROM members m
+    LEFT JOIN rentals r ON r.member_id = m.member_id
+    WHERE m.city = p_city;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION city_report(p_city VARCHAR, p_from_date DATE)
+RETURNS TABLE(
+    member_count BIGINT,
+    rental_count BIGINT,
+    total_revenue NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COUNT(DISTINCT m.member_id),
+        COUNT(r.rental_id),
+        COALESCE(SUM(r.fee), 0)
+    FROM members m
+    LEFT JOIN rentals r
+        ON r.member_id = m.member_id
+       AND r.start_date >= p_from_date
+    WHERE m.city = p_city;
+END;
+$$ LANGUAGE plpgsql;
+
+--In the two-parameter version, the date condition belongs in the ON clause (not the WHERE clause) because putting r.start_date >= p_from_date in WHERE filters out NULL-extended rows from the LEFT JOIN and turns it into an inner join, dropping members who have no rentals on or after p_from_date. For 'Almaty' with DATE '2025-01-01', putting the date filter in ON keeps all 3 Almaty members (Aisha Nurlanova, Daniyar Serik, Elena Petrova), whereas putting it in WHERE drops Elena Petrova (who has no rentals) and reduces member_count to 2.
